@@ -7,9 +7,21 @@ const Auth: React.FC = () => {
   const currentDomain = window.location.hostname;
   
   // Calculate the required Redirect URI
-  // Safely access env to avoid crashes if import.meta.env is undefined
+  // Safely access env
   const env = import.meta.env || ({} as any);
-  const projectId = env.VITE_FIREBASE_PROJECT_ID || 'todolist-pomo';
+  
+  // Logic to determine Project ID:
+  // 1. Explicit Env Var
+  // 2. Extracted from Auth Domain (e.g., project-id.firebaseapp.com)
+  // 3. Fallback to 'todolist-pomo' based on user logs
+  let projectId = env.VITE_FIREBASE_PROJECT_ID;
+  if (!projectId && env.VITE_FIREBASE_AUTH_DOMAIN) {
+    projectId = env.VITE_FIREBASE_AUTH_DOMAIN.split('.')[0];
+  }
+  if (!projectId) {
+    projectId = 'todolist-pomo';
+  }
+
   const redirectUri = `https://${projectId}.firebaseapp.com/__/auth/handler`;
 
   const copyText = (text: string) => {
