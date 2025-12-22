@@ -4,6 +4,8 @@ import Auth from './components/Auth';
 import TaskList from './components/TaskList';
 import Pomodoro from './components/Pomodoro';
 import CalendarView from './components/CalendarView';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
 import { LogOut, Layout, Globe } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -75,7 +77,7 @@ const Dashboard: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { user, loadingAuth } = useAppContext();
+  const { user, loadingAuth, currentView } = useAppContext();
 
   if (loadingAuth) {
     return (
@@ -85,6 +87,11 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // View Navigation Logic
+  if (currentView === 'privacy') return <PrivacyPolicy />;
+  if (currentView === 'terms') return <TermsOfService />;
+  
+  // Default Dashboard/Auth Logic
   return user ? <Dashboard /> : <Auth />;
 };
 

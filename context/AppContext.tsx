@@ -144,6 +144,7 @@ const translations: Record<string, Record<string, string>> = {
 };
 
 type Language = 'en' | 'vi';
+export type AppView = 'home' | 'privacy' | 'terms';
 
 export interface DayStatus {
   total: number;
@@ -158,6 +159,8 @@ interface AppContextType {
   loadingTasks: boolean;
   language: Language;
   monthlyStats: Record<string, DayStatus>; // 'YYYY-MM-DD' -> Status
+  currentView: AppView;
+  navigateTo: (view: AppView) => void;
   toggleLanguage: () => void;
   t: (key: string) => string;
   locale: any; // date-fns locale
@@ -185,6 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
   const [monthlyStats, setMonthlyStats] = useState<Record<string, DayStatus>>({});
+  const [currentView, setCurrentView] = useState<AppView>('home');
 
   // Auth Listener
   useEffect(() => {
@@ -252,6 +256,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const t = (key: string): string => {
     return translations[language][key] || key;
+  };
+
+  // View Navigation
+  const navigateTo = (view: AppView) => {
+    setCurrentView(view);
+    window.scrollTo(0, 0);
   };
 
   // Auth Functions
@@ -448,6 +458,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loadingTasks,
       language,
       monthlyStats,
+      currentView,
+      navigateTo,
       toggleLanguage,
       t,
       locale: language === 'vi' ? vi : undefined,

@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { LogIn, Focus, User, Globe, AlertCircle, Copy, CheckCircle2 } from 'lucide-react';
 
 const Auth: React.FC = () => {
-  const { signIn, signInAsGuest, t, toggleLanguage, language } = useAppContext();
+  const { signIn, signInAsGuest, t, toggleLanguage, language, navigateTo } = useAppContext();
   const currentDomain = window.location.hostname;
   
   // Calculate the required Redirect URI
@@ -79,6 +79,17 @@ const Auth: React.FC = () => {
         <div className="mt-8 text-xs text-gray-400">
           <p>{t('auth_limit_msg')}</p>
           <p>{t('auth_focus_msg')}</p>
+        </div>
+
+        {/* Legal Links */}
+        <div className="mt-8 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
+           <button onClick={() => navigateTo('privacy')} className="hover:text-primary hover:underline">
+             Privacy Policy
+           </button>
+           <span>•</span>
+           <button onClick={() => navigateTo('terms')} className="hover:text-primary hover:underline">
+             Terms of Service
+           </button>
         </div>
       </div>
 
