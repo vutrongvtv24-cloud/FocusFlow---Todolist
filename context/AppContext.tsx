@@ -1,25 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
-// Fix: Use namespace import and cast to any to resolve "no exported member" errors
-import * as firebaseAuth from 'firebase/auth';
 
-// Fix: Use default imports from subpaths for date-fns to avoid named export issues
-import format from 'date-fns/format';
-import addDays from 'date-fns/addDays';
+// Use Standard Named Imports for Production Stability
+// @ts-ignore
+import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider, User as FirebaseUser } from 'firebase/auth';
+
+// Standard date-fns imports
+import { format, addDays, endOfMonth } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
-import endOfMonth from 'date-fns/endOfMonth';
 import vi from 'date-fns/locale/vi';
 
 import { Task, User } from '../types';
 import * as taskService from '../services/taskService';
-
-// Extract needed functions from firebaseAuth
-const { 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  signOut, 
-  GoogleAuthProvider 
-} = firebaseAuth as any;
 
 // Translation Dictionary
 const translations: Record<string, Record<string, string>> = {
@@ -185,12 +177,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser: any) => {
-      if (user?.uid === 'guest') return;
-      setUser(currentUser as unknown as User);
-      setLoadingAuth(false);
-    });
-    return () => unsubscribe();
+    // Ensure onAuthStateChanged is a function before calling (defensive programming)
+    if (typeof onAuthStateChanged === 'function') {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser: any) => {
+          if (user?.uid === 'guest') return;
+          setUser(currentUser as unknown as User);
+          setLoadingAuth(false);
+        });
+        return () => unsubscribe();
+    } else {
+        console.error("onAuthStateChanged is not a function. Check imports.");
+        setLoadingAuth(false);
+    }
   }, [user]);
 
   // Fetch Tasks for selected date
@@ -250,10 +248,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      if (credential?.accessToken) {
-        setAccessToken(credential.accessToken);
+      if (typeof signInWithPopup === 'function') {
+          const result = await signInWithPopup(auth, googleProvider);
+          const credential = GoogleAuthProvider.credentialFromResult(result);
+          if (credential?.accessToken) {
+            setAccessToken(credential.accessToken);
+          }
+      } else {
+          console.error("signInWithPopup is not a function");
+          alert("Error: Auth function missing.");
       }
     } catch (error: any) {
       console.error("Sign in failed", error);
@@ -283,7 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user?.uid === 'guest') {
       setUser(null);
     } else {
-      if (auth) {
+      if (auth && typeof signOut === 'function') {
         await signOut(auth);
       }
       setAccessToken(null);
@@ -370,10 +373,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!token) {
         if (!auth) throw new Error('auth_failed');
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const credential = GoogleAuthProvider.credentialFromResult(result);
-            token = credential?.accessToken || null;
-            if (token) setAccessToken(token);
+            if (typeof signInWithPopup === 'function') {
+                const result = await signInWithPopup(auth, googleProvider);
+                const credential = GoogleAuthProvider.credentialFromResult(result);
+                token = credential?.accessToken || null;
+                if (token) setAccessToken(token);
+            }
         } catch (e) {
             console.error("Auth for sync failed", e);
             throw new Error('auth_failed');
