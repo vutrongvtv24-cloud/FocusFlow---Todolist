@@ -29,12 +29,13 @@ const translations: Record<string, Record<string, string>> = {
     "sign_in_failed": "Sign in failed.",
     
     // Auth Troubleshooting
-    "auth_trouble_title": "Configuration Required",
-    "auth_trouble_desc": "To enable Google Sign-In, you must whitelist this domain:",
-    "auth_step_1": "Go to Firebase Console -> Authentication -> Settings.",
-    "auth_step_2": "Select 'Authorized domains'.",
-    "auth_step_3": "Click 'Add domain' and paste this:",
-    "auth_trouble_guest": "Or simply use 'Continue as Guest' to skip this.",
+    "auth_trouble_title": "Setup Required (Error 400)",
+    "auth_trouble_intro": "To fix 'OAuth 2.0 Policy' or 'Redirect URI' errors:",
+    "auth_step_1_label": "Step 1: Authorized Domain",
+    "auth_step_1_desc": "Go to Firebase Console > Authentication > Settings > Authorized Domains. Add:",
+    "auth_step_2_label": "Step 2: Google Cloud Redirect URI",
+    "auth_step_2_desc": "Go to Google Cloud Console > APIs & Services > Credentials. Edit your 'Web client'. Add this URI to 'Authorized redirect URIs':",
+    "auth_trouble_guest": "Stuck? Use 'Continue as Guest' to access the app now.",
 
     // Dashboard
     "sign_out": "Sign Out",
@@ -91,12 +92,13 @@ const translations: Record<string, Record<string, string>> = {
     "sign_in_failed": "Đăng nhập thất bại.",
 
     // Auth Troubleshooting
-    "auth_trouble_title": "Cần cấu hình thêm",
-    "auth_trouble_desc": "Để đăng nhập Google, bạn cần thêm tên miền này vào danh sách cho phép:",
-    "auth_step_1": "Vào Firebase Console -> Authentication -> Settings.",
-    "auth_step_2": "Chọn mục 'Authorized domains'.",
-    "auth_step_3": "Nhấn 'Add domain' và dán dòng này:",
-    "auth_trouble_guest": "Hoặc dùng 'Tiếp tục với tư cách Khách' để bỏ qua.",
+    "auth_trouble_title": "Sửa lỗi Đăng nhập (Lỗi 400)",
+    "auth_trouble_intro": "Để sửa lỗi 'OAuth 2.0 Policy' hoặc 'Redirect URI mismatch':",
+    "auth_step_1_label": "Bước 1: Thêm Tên miền (Domain)",
+    "auth_step_1_desc": "Vào Firebase Console > Authentication > Settings > Authorized Domains. Thêm:",
+    "auth_step_2_label": "Bước 2: Thêm Redirect URI (Quan trọng)",
+    "auth_step_2_desc": "Vào Google Cloud Console > APIs & Services > Credentials. Sửa 'Web client' (Client web). Thêm link sau vào mục 'Authorized redirect URIs':",
+    "auth_trouble_guest": "Gặp khó khăn? Dùng 'Tiếp tục với tư cách Khách' để vào ngay.",
 
     // Dashboard
     "sign_out": "Đăng xuất",
@@ -262,8 +264,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       // Compat usage: auth.signInWithPopup(provider)
       const result = await auth.signInWithPopup(googleProvider);
-      // Compat usage: firebase.auth.GoogleAuthProvider.credentialFromResult(result)
-      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+      
+      // Fix: In compat/v8 mode, credential is on the result object
+      // instead of using the modular SDK's static credentialFromResult
+      const credential = result.credential as firebase.auth.OAuthCredential;
+      
       if (credential?.accessToken) {
         setAccessToken(credential.accessToken);
       }
@@ -391,7 +396,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
             // Compat usage
             const result = await auth.signInWithPopup(googleProvider);
-            const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+            // Fix: In compat/v8 mode, credential is on the result object
+            const credential = result.credential as firebase.auth.OAuthCredential;
             token = credential?.accessToken || null;
             if (token) setAccessToken(token);
         } catch (e) {

@@ -1,18 +1,24 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LogIn, Focus, User, Globe, AlertCircle, Copy } from 'lucide-react';
+import { LogIn, Focus, User, Globe, AlertCircle, Copy, CheckCircle2 } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const { signIn, signInAsGuest, t, toggleLanguage, language } = useAppContext();
   const currentDomain = window.location.hostname;
+  
+  // Calculate the required Redirect URI
+  // Safely access env to avoid crashes if import.meta.env is undefined
+  const env = import.meta.env || ({} as any);
+  const projectId = env.VITE_FIREBASE_PROJECT_ID || 'todolist-pomo';
+  const redirectUri = `https://${projectId}.firebaseapp.com/__/auth/handler`;
 
-  const copyDomain = () => {
-    navigator.clipboard.writeText(currentDomain);
-    alert('Copied to clipboard: ' + currentDomain);
+  const copyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Copied: ' + text);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8 relative">
       {/* Language Toggle in top right */}
       <button 
         onClick={toggleLanguage}
@@ -62,35 +68,57 @@ const Auth: React.FC = () => {
           <p>{t('auth_limit_msg')}</p>
           <p>{t('auth_focus_msg')}</p>
         </div>
+      </div>
 
-        {/* Detailed Guide for Error 400 */}
-        <div className="mt-8 pt-6 border-t border-gray-100 text-left">
-          <div className="flex items-start gap-3 bg-orange-50 border border-orange-100 p-4 rounded-xl">
-            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-orange-900">
-              <p className="font-bold mb-2 text-sm">{t('auth_trouble_title')}</p>
-              <p className="mb-2">{t('auth_trouble_desc')}</p>
-              
-              <ol className="list-decimal list-inside space-y-1.5 mb-3 ml-1 text-orange-800/80">
-                <li>{t('auth_step_1')}</li>
-                <li>{t('auth_step_2')}</li>
-                <li>{t('auth_step_3')}</li>
-              </ol>
+      {/* Troubleshooting Section */}
+      <div className="max-w-md w-full mt-6">
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 shadow-sm text-left">
+           <div className="flex items-center gap-2 mb-3">
+             <AlertCircle className="text-orange-600" size={18} />
+             <h3 className="font-bold text-orange-900 text-sm">{t('auth_trouble_title')}</h3>
+           </div>
+           
+           <p className="text-xs text-orange-800 mb-4">{t('auth_trouble_intro')}</p>
 
-              <div 
-                onClick={copyDomain}
-                className="flex items-center justify-between bg-white border border-orange-200 rounded p-2 mb-3 cursor-pointer hover:border-orange-400 transition-colors group"
-                title="Click to copy"
-              >
-                <code className="font-mono text-orange-800 break-all">{currentDomain}</code>
-                <Copy size={14} className="text-orange-300 group-hover:text-orange-500" />
-              </div>
+           <div className="space-y-4">
+             {/* Step 1 */}
+             <div>
+               <p className="text-xs font-bold text-orange-900 mb-1 flex items-center gap-1">
+                 <span className="w-4 h-4 rounded-full bg-orange-200 text-orange-800 flex items-center justify-center text-[10px]">1</span>
+                 {t('auth_step_1_label')}
+               </p>
+               <p className="text-[10px] text-orange-800/80 mb-1">{t('auth_step_1_desc')}</p>
+               <div 
+                  onClick={() => copyText(currentDomain)}
+                  className="flex items-center justify-between bg-white border border-orange-200 rounded px-2 py-1.5 cursor-pointer hover:border-orange-400 transition-colors group"
+                >
+                  <code className="font-mono text-[10px] text-orange-800 break-all">{currentDomain}</code>
+                  <Copy size={12} className="text-orange-300 group-hover:text-orange-500 flex-shrink-0 ml-2" />
+                </div>
+             </div>
 
-              <p className="text-orange-800/60 italic border-t border-orange-100 pt-2 mt-2">
-                {t('auth_trouble_guest')}
-              </p>
-            </div>
-          </div>
+             {/* Step 2 */}
+             <div>
+               <p className="text-xs font-bold text-orange-900 mb-1 flex items-center gap-1">
+                 <span className="w-4 h-4 rounded-full bg-orange-200 text-orange-800 flex items-center justify-center text-[10px]">2</span>
+                 {t('auth_step_2_label')}
+               </p>
+               <p className="text-[10px] text-orange-800/80 mb-1">{t('auth_step_2_desc')}</p>
+               <div 
+                  onClick={() => copyText(redirectUri)}
+                  className="flex items-center justify-between bg-white border border-orange-200 rounded px-2 py-1.5 cursor-pointer hover:border-orange-400 transition-colors group"
+                >
+                  <code className="font-mono text-[10px] text-orange-800 break-all leading-tight">{redirectUri}</code>
+                  <Copy size={12} className="text-orange-300 group-hover:text-orange-500 flex-shrink-0 ml-2" />
+                </div>
+             </div>
+           </div>
+           
+           <div className="mt-4 pt-3 border-t border-orange-200/60 text-center">
+             <p className="text-[10px] text-orange-700 italic">
+               {t('auth_trouble_guest')}
+             </p>
+           </div>
         </div>
       </div>
     </div>
