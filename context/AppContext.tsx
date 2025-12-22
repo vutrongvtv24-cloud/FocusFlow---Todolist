@@ -179,6 +179,17 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Helper to determine initial view from URL
+const getInitialView = (): AppView => {
+  const path = window.location.pathname;
+  if (path === '/privacy') return 'privacy';
+  if (path === '/terms') return 'terms';
+  // Also check subdomains just in case custom domain is used
+  if (window.location.hostname.startsWith('privacy.')) return 'privacy';
+  if (window.location.hostname.startsWith('terms.')) return 'terms';
+  return 'home';
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -188,7 +199,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [language, setLanguage] = useState<Language>('en');
   const [monthlyStats, setMonthlyStats] = useState<Record<string, DayStatus>>({});
-  const [currentView, setCurrentView] = useState<AppView>('home');
+  
+  // Initialize view from URL
+  const [currentView, setCurrentView] = useState<AppView>(getInitialView());
+
+  // Handle browser Back/Forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentView(getInitialView());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Auth Listener
   useEffect(() => {
@@ -258,10 +280,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return translations[language][key] || key;
   };
 
-  // View Navigation
+  // View Navigation with URL Updates (History API)
   const navigateTo = (view: AppView) => {
     setCurrentView(view);
     window.scrollTo(0, 0);
+    
+    // Update URL without reload
+    let path = '/';
+    if (view === 'privacy') path = '/privacy';
+    if (view === 'terms') path = '/terms';
+    
+    window.history.pushState({}, '', path);
   };
 
   // Auth Functions
