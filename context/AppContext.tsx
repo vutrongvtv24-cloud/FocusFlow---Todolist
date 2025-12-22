@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
+// Fix: Use namespace import for firebase/auth
 import * as firebaseAuth from 'firebase/auth';
 
-// Standard date-fns imports (Named imports are preferred in v2/v3/v4)
+// Standard date-fns imports
 import { format, addDays, endOfMonth, isSameDay } from 'date-fns';
+// Fix: Import problematic functions directly
 import startOfMonth from 'date-fns/startOfMonth';
+// Fix: Import locale directly
 import vi from 'date-fns/locale/vi';
 
 import { Task, User } from '../types';
@@ -201,7 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchMonthlyStats = async (monthDate: Date) => {
     if (!user) return;
     
-    // startOfMonth using named import
+    // Standard named import usage
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     

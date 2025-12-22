@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+// Fix: Use namespace import to avoid "no exported member" errors
 import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -27,7 +28,9 @@ let db: any = null;
 if (firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig);
+    // Fix: Access getAuth from namespace
     auth = firebaseAuth.getAuth(app);
+    // Fix: Access GoogleAuthProvider from namespace
     googleProvider = new firebaseAuth.GoogleAuthProvider();
     googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
     db = getFirestore(app);

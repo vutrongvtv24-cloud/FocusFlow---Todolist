@@ -7,7 +7,7 @@ import {
   isSameMonth, 
   isSameDay, 
   addMonths, 
-  isToday
+  isToday,
 } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import startOfWeek from 'date-fns/startOfWeek';
