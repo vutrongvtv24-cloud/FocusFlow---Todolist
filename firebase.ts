@@ -1,29 +1,49 @@
 import { initializeApp } from 'firebase/app';
+// Fix: Use namespace import and cast to any to resolve "no exported member" errors for firebase/auth
 import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // ------------------------------------------------------------------
 // FIREBASE CONFIGURATION
 // ------------------------------------------------------------------
+
+// Safe access to environment variables. Cast fallback to any to avoid type errors.
+const env = import.meta.env || ({} as any);
+
 const firebaseConfig = {
-  apiKey: "AIzaSyAFAD1X9RvxNqun2m6w5fl4uFQNBUj2UVo",
-  authDomain: "todolist-pomo.firebaseapp.com",
-  projectId: "todolist-pomo",
-  storageBucket: "todolist-pomo.firebasestorage.app",
-  messagingSenderId: "365854985032",
-  appId: "1:365854985032:web:1e34a66e711bbf2918817d",
+  apiKey: env.VITE_FIREBASE_API_KEY,
+  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize App (Modular)
-const app = initializeApp(firebaseConfig);
+let app;
+let auth: any = null;
+let googleProvider: any = null;
+let db: any = null;
 
-// Auth (Modular)
-// Using namespace import to avoid "no exported member" errors in some environments
-export const auth = firebaseAuth.getAuth(app);
-export const googleProvider = new firebaseAuth.GoogleAuthProvider();
+// Destructure from casted firebaseAuth
+const { getAuth, GoogleAuthProvider } = firebaseAuth as any;
 
-// Add scope for Google Calendar Events (Write access)
-googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+// Only initialize if configuration is present to prevent crashes
+if (firebaseConfig.apiKey) {
+  try {
+    app = initializeApp(firebaseConfig);
+    if (getAuth) {
+      auth = getAuth(app);
+    }
+    if (GoogleAuthProvider) {
+      googleProvider = new GoogleAuthProvider();
+      googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+    }
+    db = getFirestore(app);
+  } catch (error) {
+    console.error("Firebase Initialization Error:", error);
+  }
+} else {
+  console.warn("Firebase Configuration Missing! Application running in limited mode. Check your .env file.");
+}
 
-// Firestore (Modular)
-export const db = getFirestore(app);
+export { app, auth, googleProvider, db };

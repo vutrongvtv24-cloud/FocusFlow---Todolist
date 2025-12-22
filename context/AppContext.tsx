@@ -1,13 +1,25 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
+// Fix: Use namespace import and cast to any to resolve "no exported member" errors
 import * as firebaseAuth from 'firebase/auth';
-import type { User as FirebaseUser } from 'firebase/auth';
-import { format, addDays } from 'date-fns';
+
+// Fix: Use default imports from subpaths for date-fns to avoid named export issues
+import format from 'date-fns/format';
+import addDays from 'date-fns/addDays';
 import startOfMonth from 'date-fns/startOfMonth';
 import endOfMonth from 'date-fns/endOfMonth';
 import vi from 'date-fns/locale/vi';
+
 import { Task, User } from '../types';
 import * as taskService from '../services/taskService';
+
+// Extract needed functions from firebaseAuth
+const { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut, 
+  GoogleAuthProvider 
+} = firebaseAuth as any;
 
 // Translation Dictionary
 const translations: Record<string, Record<string, string>> = {
@@ -166,7 +178,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth Listener
   useEffect(() => {
-    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser: FirebaseUser | null) => {
+    // Safe guard: If auth is missing (config missing), stop loading and let user use Guest mode only
+    if (!auth) {
+      console.warn("Auth not initialized. Config missing.");
+      setLoadingAuth(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser: any) => {
       if (user?.uid === 'guest') return;
       setUser(currentUser as unknown as User);
       setLoadingAuth(false);
@@ -225,9 +244,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Auth Functions
   const signIn = async () => {
+    if (!auth) {
+      alert("Firebase is not configured. Please create a .env file with your Firebase keys, or continue as Guest.");
+      return;
+    }
+
     try {
-      const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
-      const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setAccessToken(credential.accessToken);
       }
@@ -259,7 +283,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user?.uid === 'guest') {
       setUser(null);
     } else {
-      await firebaseAuth.signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       setAccessToken(null);
     }
     setTasks([]);
@@ -342,9 +368,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let token = accessToken;
       
       if (!token) {
+        if (!auth) throw new Error('auth_failed');
         try {
-            const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
-            const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+            const result = await signInWithPopup(auth, googleProvider);
+            const credential = GoogleAuthProvider.credentialFromResult(result);
             token = credential?.accessToken || null;
             if (token) setAccessToken(token);
         } catch (e) {

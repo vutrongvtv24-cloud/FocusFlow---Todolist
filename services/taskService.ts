@@ -47,6 +47,11 @@ export const fetchTasksForDate = async (userId: string, dateStr: string): Promis
   }
 
   // FIREBASE MODE
+  if (!db) {
+    console.error("Database not initialized");
+    return [];
+  }
+
   try {
     const q = query(
       collection(db, `users/${userId}/${TASKS_COLLECTION}`),
@@ -76,6 +81,8 @@ export const fetchTasksForMonth = async (userId: string, startStr: string, endSt
   }
 
   // FIREBASE MODE
+  if (!db) return [];
+
   try {
     const q = query(
       collection(db, `users/${userId}/${TASKS_COLLECTION}`),
@@ -114,6 +121,8 @@ export const addTask = async (userId: string, content: string, dateStr: string):
   }
 
   // FIREBASE MODE
+  if (!db) return null;
+
   try {
     // Remove ID before sending to Firestore (let Firestore generate it)
     const { id, ...taskData } = newTask;
@@ -135,6 +144,8 @@ export const toggleTaskCompletion = async (userId: string, taskId: string, isCom
   }
 
   // FIREBASE MODE
+  if (!db) return;
+
   try {
     const taskRef = doc(db, `users/${userId}/${TASKS_COLLECTION}`, taskId);
     await updateDoc(taskRef, { isCompleted });
@@ -153,6 +164,8 @@ export const deleteTask = async (userId: string, taskId: string): Promise<void> 
   }
 
   // FIREBASE MODE
+  if (!db) return;
+
   try {
     const taskRef = doc(db, `users/${userId}/${TASKS_COLLECTION}`, taskId);
     await deleteDoc(taskRef);
@@ -171,6 +184,8 @@ export const updateTaskContent = async (userId: string, taskId: string, content:
   }
 
   // FIREBASE MODE
+  if (!db) return;
+
   try {
     const taskRef = doc(db, `users/${userId}/${TASKS_COLLECTION}`, taskId);
     await updateDoc(taskRef, { content });
