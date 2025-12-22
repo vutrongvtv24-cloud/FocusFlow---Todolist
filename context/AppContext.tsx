@@ -4,6 +4,7 @@ import * as firebaseAuth from 'firebase/auth';
 
 // Standard date-fns imports
 import { format, addDays, endOfMonth, isSameDay } from 'date-fns';
+// Fallback for startOfMonth if missing in named exports (using direct path import to be safe)
 import startOfMonth from 'date-fns/startOfMonth';
 import vi from 'date-fns/locale/vi';
 
@@ -201,6 +202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const fetchMonthlyStats = async (monthDate: Date) => {
     if (!user) return;
     
+    // startOfMonth imported from path
     const start = format(startOfMonth(monthDate), 'yyyy-MM-dd');
     const end = format(endOfMonth(monthDate), 'yyyy-MM-dd');
     
