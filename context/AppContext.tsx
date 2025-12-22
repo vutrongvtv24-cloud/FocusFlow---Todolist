@@ -1,12 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
-
-// Use Standard Named Imports for Production Stability
-// @ts-ignore
-import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider, User as FirebaseUser } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
 
 // Standard date-fns imports
-import { format, addDays, endOfMonth } from 'date-fns';
+import { format, addDays, endOfMonth, isSameDay } from 'date-fns';
 import startOfMonth from 'date-fns/startOfMonth';
 import vi from 'date-fns/locale/vi';
 
@@ -177,18 +174,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    // Ensure onAuthStateChanged is a function before calling (defensive programming)
-    if (typeof onAuthStateChanged === 'function') {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser: any) => {
-          if (user?.uid === 'guest') return;
-          setUser(currentUser as unknown as User);
-          setLoadingAuth(false);
-        });
-        return () => unsubscribe();
-    } else {
-        console.error("onAuthStateChanged is not a function. Check imports.");
-        setLoadingAuth(false);
-    }
+    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser: any) => {
+      if (user?.uid === 'guest') return;
+      setUser(currentUser as unknown as User);
+      setLoadingAuth(false);
+    });
+    return () => unsubscribe();
   }, [user]);
 
   // Fetch Tasks for selected date
@@ -248,15 +239,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      if (typeof signInWithPopup === 'function') {
-          const result = await signInWithPopup(auth, googleProvider);
-          const credential = GoogleAuthProvider.credentialFromResult(result);
-          if (credential?.accessToken) {
-            setAccessToken(credential.accessToken);
-          }
-      } else {
-          console.error("signInWithPopup is not a function");
-          alert("Error: Auth function missing.");
+      const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
+      const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setAccessToken(credential.accessToken);
       }
     } catch (error: any) {
       console.error("Sign in failed", error);
@@ -286,8 +272,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (user?.uid === 'guest') {
       setUser(null);
     } else {
-      if (auth && typeof signOut === 'function') {
-        await signOut(auth);
+      if (auth) {
+        await firebaseAuth.signOut(auth);
       }
       setAccessToken(null);
     }
@@ -373,12 +359,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!token) {
         if (!auth) throw new Error('auth_failed');
         try {
-            if (typeof signInWithPopup === 'function') {
-                const result = await signInWithPopup(auth, googleProvider);
-                const credential = GoogleAuthProvider.credentialFromResult(result);
-                token = credential?.accessToken || null;
-                if (token) setAccessToken(token);
-            }
+            const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
+            const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+            token = credential?.accessToken || null;
+            if (token) setAccessToken(token);
         } catch (e) {
             console.error("Auth for sync failed", e);
             throw new Error('auth_failed');

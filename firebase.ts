@@ -1,6 +1,5 @@
 import { initializeApp } from 'firebase/app';
-// @ts-ignore - Ignore type check ensuring generic compat during build
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // ------------------------------------------------------------------
@@ -28,19 +27,9 @@ let db: any = null;
 if (firebaseConfig.apiKey) {
   try {
     app = initializeApp(firebaseConfig);
-    
-    // Initialize Auth if available
-    if (getAuth) {
-        auth = getAuth(app);
-    }
-    
-    // Initialize Provider
-    if (GoogleAuthProvider) {
-        googleProvider = new GoogleAuthProvider();
-        googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
-    }
-    
-    // Initialize Firestore
+    auth = firebaseAuth.getAuth(app);
+    googleProvider = new firebaseAuth.GoogleAuthProvider();
+    googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
     db = getFirestore(app);
   } catch (error) {
     console.error("Firebase Initialization Error:", error);
