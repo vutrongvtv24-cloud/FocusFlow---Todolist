@@ -1,6 +1,5 @@
-import { initializeApp } from 'firebase/app';
-// Fix: Use namespace import to avoid "no exported member" errors
-import * as firebaseAuth from 'firebase/auth';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // ------------------------------------------------------------------
@@ -27,12 +26,13 @@ let db: any = null;
 // Only initialize if configuration is present to prevent crashes
 if (firebaseConfig.apiKey) {
   try {
-    app = initializeApp(firebaseConfig);
-    // Fix: Access getAuth from namespace
-    auth = firebaseAuth.getAuth(app);
-    // Fix: Access GoogleAuthProvider from namespace
-    googleProvider = new firebaseAuth.GoogleAuthProvider();
+    // Use compat initialization for App and Auth
+    app = firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    googleProvider = new firebase.auth.GoogleAuthProvider();
     googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+    
+    // Use modular Firestore (passing compat app instance works in v9)
     db = getFirestore(app);
   } catch (error) {
     console.error("Firebase Initialization Error:", error);

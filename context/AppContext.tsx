@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
-// Fix: Use namespace import for firebase/auth
-import * as firebaseAuth from 'firebase/auth';
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
 
 // Standard date-fns imports
 import { format, addDays, endOfMonth, isSameDay } from 'date-fns';
@@ -27,6 +27,14 @@ const translations: Record<string, Record<string, string>> = {
     "auth_error_domain": "Access Denied: The current domain is not authorized in the Firebase Console.\n\nIf you are viewing this in a preview environment, please use 'Continue as Guest' instead.",
     "auth_error_config": "Firebase configuration issue detected. Please use 'Continue as Guest' to test the app.",
     "sign_in_failed": "Sign in failed.",
+    
+    // Auth Troubleshooting
+    "auth_trouble_title": "Configuration Required",
+    "auth_trouble_desc": "To enable Google Sign-In, you must whitelist this domain:",
+    "auth_step_1": "Go to Firebase Console -> Authentication -> Settings.",
+    "auth_step_2": "Select 'Authorized domains'.",
+    "auth_step_3": "Click 'Add domain' and paste this:",
+    "auth_trouble_guest": "Or simply use 'Continue as Guest' to skip this.",
 
     // Dashboard
     "sign_out": "Sign Out",
@@ -81,6 +89,14 @@ const translations: Record<string, Record<string, string>> = {
     "auth_error_domain": "Truy cập bị từ chối: Tên miền hiện tại chưa được ủy quyền trong Firebase Console.\n\nNếu bạn đang xem bản xem trước, vui lòng sử dụng 'Tiếp tục với tư cách Khách'.",
     "auth_error_config": "Phát hiện lỗi cấu hình Firebase. Vui lòng sử dụng 'Tiếp tục với tư cách Khách' để kiểm thử ứng dụng.",
     "sign_in_failed": "Đăng nhập thất bại.",
+
+    // Auth Troubleshooting
+    "auth_trouble_title": "Cần cấu hình thêm",
+    "auth_trouble_desc": "Để đăng nhập Google, bạn cần thêm tên miền này vào danh sách cho phép:",
+    "auth_step_1": "Vào Firebase Console -> Authentication -> Settings.",
+    "auth_step_2": "Chọn mục 'Authorized domains'.",
+    "auth_step_3": "Nhấn 'Add domain' và dán dòng này:",
+    "auth_trouble_guest": "Hoặc dùng 'Tiếp tục với tư cách Khách' để bỏ qua.",
 
     // Dashboard
     "sign_out": "Đăng xuất",
@@ -177,7 +193,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const unsubscribe = firebaseAuth.onAuthStateChanged(auth, (currentUser: any) => {
+    // Compat usage: auth.onAuthStateChanged
+    const unsubscribe = auth.onAuthStateChanged((currentUser: any) => {
       if (user?.uid === 'guest') return;
       setUser(currentUser as unknown as User);
       setLoadingAuth(false);
@@ -243,21 +260,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
-      const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+      // Compat usage: auth.signInWithPopup(provider)
+      const result = await auth.signInWithPopup(googleProvider);
+      // Compat usage: firebase.auth.GoogleAuthProvider.credentialFromResult(result)
+      const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
       if (credential?.accessToken) {
         setAccessToken(credential.accessToken);
       }
     } catch (error: any) {
       console.error("Sign in failed", error);
       let msg = t('sign_in_failed');
+      
+      // Handle known error codes
       if (error.code === 'auth/unauthorized-domain') {
         msg = t('auth_error_domain');
       } else if (error.code === 'auth/api-key-not-valid' || error.code === 'auth/configuration-not-found') {
         msg = t('auth_error_config');
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        // User closed the popup, likely due to the error 400 screen
+        msg = "Popup closed. If you saw an error screen, please use Guest Mode.";
       } else if (error.message) {
         msg = `Error: ${error.message}`;
       }
+      
       alert(msg);
     }
   };
@@ -277,7 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(null);
     } else {
       if (auth) {
-        await firebaseAuth.signOut(auth);
+        // Compat usage: auth.signOut()
+        await auth.signOut();
       }
       setAccessToken(null);
     }
@@ -363,8 +389,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!token) {
         if (!auth) throw new Error('auth_failed');
         try {
-            const result = await firebaseAuth.signInWithPopup(auth, googleProvider);
-            const credential = firebaseAuth.GoogleAuthProvider.credentialFromResult(result);
+            // Compat usage
+            const result = await auth.signInWithPopup(googleProvider);
+            const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
             token = credential?.accessToken || null;
             if (token) setAccessToken(token);
         } catch (e) {
