@@ -8,10 +8,10 @@ import {
   isSameDay, 
   addMonths, 
   isToday,
+  startOfMonth,
+  startOfWeek,
+  subMonths
 } from 'date-fns';
-import startOfMonth from 'date-fns/startOfMonth';
-import startOfWeek from 'date-fns/startOfWeek';
-import subMonths from 'date-fns/subMonths';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 

@@ -4,11 +4,8 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 
 // Standard date-fns imports
-import { format, addDays, endOfMonth, isSameDay } from 'date-fns';
-// Fix: Import problematic functions directly
-import startOfMonth from 'date-fns/startOfMonth';
-// Fix: Import locale directly
-import vi from 'date-fns/locale/vi';
+import { format, addDays, endOfMonth, isSameDay, startOfMonth } from 'date-fns';
+import { vi } from 'date-fns/locale';
 
 import { Task, User } from '../types';
 import * as taskService from '../services/taskService';
@@ -449,16 +446,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           throw new Error('guest_mode');
       }
 
+      // 1. Define Helper to get fresh token
+      // We create a NEW provider instance to ensure clean scope request
+      const getFreshToken = async () => {
+         if (!auth) throw new Error('auth_failed');
+         const provider = new firebase.auth.GoogleAuthProvider();
+         provider.addScope('https://www.googleapis.com/auth/calendar.events');
+         // We do not force prompt='select_account' to avoid annoying user, 
+         // but if we are here, it means we likely need a refresh.
+         
+         const result = await auth.signInWithPopup(provider);
+         const credential = result.credential as firebase.auth.OAuthCredential;
+         return credential?.accessToken || null;
+      };
+
+      // 2. Determine Token to use
       let token = accessToken;
       
+      // If no token in state, try to get one
       if (!token) {
-        if (!auth) throw new Error('auth_failed');
         try {
-            // Compat usage
-            const result = await auth.signInWithPopup(googleProvider);
-            // Fix: In compat/v8 mode, credential is on the result object
-            const credential = result.credential as firebase.auth.OAuthCredential;
-            token = credential?.accessToken || null;
+            token = await getFreshToken();
             if (token) setAccessToken(token);
         } catch (e) {
             console.error("Auth for sync failed", e);
@@ -468,10 +476,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!token) throw new Error('no_token');
 
-      const startStr = format(date, 'yyyy-MM-dd');
-      const endStr = format(addDays(date, 1), 'yyyy-MM-dd');
+      // 3. Helper function to create a single event
+      const createEvent = async (task: Task, authToken: string) => {
+          const startStr = format(date, 'yyyy-MM-dd');
+          const endStr = format(addDays(date, 1), 'yyyy-MM-dd');
 
-      const promises = tasksToSync.map(task => {
           const event = {
               summary: `[FocusFlow] ${task.content}`,
               description: `Created via FocusFlow on ${startStr}`,
@@ -480,23 +489,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               transparency: "transparent"
           };
 
-          return fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
               method: 'POST',
               headers: {
-                  'Authorization': `Bearer ${token}`,
+                  'Authorization': `Bearer ${authToken}`,
                   'Content-Type': 'application/json'
               },
               body: JSON.stringify(event)
-          }).then(async res => {
-              if (!res.ok) {
-                  const err = await res.json();
-                  throw new Error(err.error?.message || 'API Error');
-              }
-              return res.json();
           });
-      });
 
-      await Promise.all(promises);
+          if (!res.ok) {
+              // Special handling for 401 (Expired Token)
+              if (res.status === 401) {
+                  throw new Error('AUTH_EXPIRED');
+              }
+              const err = await res.json();
+              throw new Error(err.error?.message || `API Error: ${res.status}`);
+          }
+          return res.json();
+      };
+
+      // 4. Execute with Retry Logic
+      try {
+          const promises = tasksToSync.map(task => createEvent(task, token!));
+          await Promise.all(promises);
+      } catch (error: any) {
+          // If token expired, try ONCE more with a fresh token
+          if (error.message === 'AUTH_EXPIRED') {
+              console.log("Token expired, refreshing...");
+              const newToken = await getFreshToken();
+              if (newToken) {
+                  setAccessToken(newToken);
+                  const retryPromises = tasksToSync.map(task => createEvent(task, newToken));
+                  await Promise.all(retryPromises);
+                  return; // Success after retry
+              }
+          }
+          // If not 401, or retry failed, rethrow
+          throw error;
+      }
   };
 
   return (

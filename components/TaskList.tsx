@@ -65,9 +65,12 @@ const TaskList: React.FC = () => {
     } catch (error: any) {
         if (error.message === 'guest_mode') {
             alert(t('sync_guest_error'));
+        } else if (error.message === 'auth_failed') {
+            alert('Authentication failed. Please check if popups are allowed.');
         } else {
-            console.error(error);
-            alert(t('sync_error'));
+            console.error("Sync Error Details:", error);
+            // Display specific error message for debugging
+            alert(`Sync Failed: ${error.message || 'Unknown error'}. \n\nTip: Check if Google Calendar API is enabled in Google Cloud Console.`);
         }
     } finally {
         setIsSyncing(false);
