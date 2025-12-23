@@ -7,10 +7,11 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
-  writeBatch
+  writeBatch,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Task } from '../types';
+import { Task, Subtask } from '../types';
 
 const TASKS_COLLECTION = 'tasks';
 const GUEST_STORAGE_KEY = 'focusflow_guest_tasks';
@@ -36,7 +37,9 @@ const docToTask = (doc: any): Task => {
     id: doc.id,
     ...data,
     // Ensure order exists for legacy tasks
-    order: data.order ?? data.createdAt ?? 0 
+    order: data.order ?? data.createdAt ?? 0,
+    // Ensure subtasks array exists
+    subtasks: data.subtasks || []
   };
 };
 
@@ -134,7 +137,8 @@ export const addTask = async (userId: string, content: string, dateStr: string):
     date: dateStr,
     userId,
     createdAt: Date.now(),
-    order: nextOrder
+    order: nextOrder,
+    subtasks: []
   };
 
   // GUEST MODE
@@ -249,4 +253,26 @@ export const updateTasksOrder = async (userId: string, tasks: Task[]): Promise<v
     } catch (error) {
         console.error("Error updating task order:", error);
     }
+};
+
+// NEW: Manage Subtasks (Add, Toggle, Delete, Reorder)
+// Since subtasks are a nested array, we update the whole 'subtasks' field on the parent document.
+export const updateSubtasks = async (userId: string, taskId: string, subtasks: Subtask[]): Promise<void> => {
+  // GUEST MODE
+  if (userId === 'guest') {
+    const tasks = getLocalTasks();
+    const updated = tasks.map(t => t.id === taskId ? { ...t, subtasks } : t);
+    setLocalTasks(updated);
+    return;
+  }
+
+  // FIREBASE MODE
+  if (!db) return;
+
+  try {
+    const taskRef = doc(db, `users/${userId}/${TASKS_COLLECTION}`, taskId);
+    await updateDoc(taskRef, { subtasks });
+  } catch (error) {
+    console.error("Error updating subtasks:", error);
+  }
 };

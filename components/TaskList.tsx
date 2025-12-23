@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Check, Trash2, Edit2, Calendar as CalIcon, X, Loader, GripVertical } from 'lucide-react';
+import { Plus, Check, Trash2, Edit2, Calendar as CalIcon, X, Loader, GripVertical, ChevronDown, ChevronUp, CornerDownRight } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
-import { Task } from '../types';
+import { Task, Subtask } from '../types';
 
 // Dnd Kit Imports
 import {
@@ -12,7 +12,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent
+  DragEndEvent,
+  DragStartEvent
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -22,6 +23,70 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// --- Sub-component for Sortable Subtask Item ---
+const SortableSubtaskItem = ({ subtask, index, taskId, styles }: any) => {
+    const { toggleSubtask, removeSubtask } = useAppContext();
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: subtask.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        zIndex: isDragging ? 10 : 1,
+        opacity: isDragging ? 0.8 : 1,
+    };
+
+    return (
+        <div 
+            ref={setNodeRef}
+            style={style}
+            className={`flex items-center gap-2 p-2 rounded-lg mb-1 group/sub transition-all ${isDragging ? 'bg-white/20' : ''}`}
+        >
+            {/* Drag Handle for Subtask */}
+            <div 
+                {...attributes} 
+                {...listeners} 
+                className={`${styles.iconColor} opacity-40 hover:opacity-100 cursor-grab active:cursor-grabbing`}
+                // Important: Stop propagation to prevent dragging the parent task
+                onPointerDown={(e) => e.stopPropagation()} 
+            >
+                <GripVertical size={14} />
+            </div>
+
+            <div className={`text-xs font-mono font-bold opacity-60 ${styles.text}`}>
+                {index + 1}.
+            </div>
+
+            <button 
+                onClick={() => toggleSubtask(taskId, subtask.id)}
+                className={`w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors
+                  ${subtask.isCompleted 
+                    ? styles.checkboxChecked
+                    : `${styles.checkboxBorder} bg-transparent`}`}
+            >
+                {subtask.isCompleted && <Check size={10} strokeWidth={4} />}
+            </button>
+            
+            <div className={`flex-1 text-sm ${subtask.isCompleted ? 'line-through opacity-50' : ''} ${styles.text}`}>
+                {subtask.content}
+            </div>
+
+            <button 
+                onClick={() => removeSubtask(taskId, subtask.id)}
+                className={`opacity-0 group-hover/sub:opacity-100 p-1 hover:bg-black/10 rounded transition-all ${styles.iconColor}`}
+            >
+                <Trash2 size={12} />
+            </button>
+        </div>
+    );
+};
 
 // --- Sub-component for Sortable Item ---
 const SortableTaskItem = ({ 
@@ -36,6 +101,11 @@ const SortableTaskItem = ({
   handleToggleRequest, 
   removeTask 
 }: any) => {
+  const { t, addSubtask, reorderSubtasks } = useAppContext();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [newSubtaskInput, setNewSubtaskInput] = useState('');
+  const [showSubInput, setShowSubInput] = useState(false);
+
   const {
     attributes,
     listeners,
@@ -58,10 +128,12 @@ const SortableTaskItem = ({
     if (isCompleted) {
       return {
         container: 'bg-stone-100 border-stone-200',
-        text: 'text-stone-400 line-through decoration-stone-400',
+        text: 'text-stone-400',
+        contentDecor: 'line-through decoration-stone-400',
         iconColor: 'text-stone-300',
         checkboxBorder: 'border-stone-300',
-        checkboxChecked: 'bg-stone-400 border-stone-400 text-white'
+        checkboxChecked: 'bg-stone-400 border-stone-400 text-white',
+        subtaskBg: 'bg-stone-50'
       };
     }
 
@@ -70,107 +142,223 @@ const SortableTaskItem = ({
         case 0: // High Priority (Red)
             return {
                 container: 'bg-[#D62828] border-[#D62828] shadow-md', // Red background
-                text: 'text-white font-medium', // High contrast white text
+                text: 'text-white', // High contrast white text
+                contentDecor: '',
                 iconColor: 'text-white/60 hover:text-white', // Subtle icons
                 checkboxBorder: 'border-white/60 hover:border-white', // White border for checkbox
-                checkboxChecked: 'bg-white border-white text-[#D62828]' // Inverted when checked
+                checkboxChecked: 'bg-white border-white text-[#D62828]', // Inverted when checked
+                subtaskBg: 'bg-black/10'
             };
         case 1: // Medium-High (Orange)
             return {
                 container: 'bg-[#F77F00] border-[#F77F00] shadow-md',
-                text: 'text-white font-medium',
+                text: 'text-white',
+                contentDecor: '',
                 iconColor: 'text-white/60 hover:text-white',
                 checkboxBorder: 'border-white/60 hover:border-white',
-                checkboxChecked: 'bg-white border-white text-[#F77F00]'
+                checkboxChecked: 'bg-white border-white text-[#F77F00]',
+                subtaskBg: 'bg-black/10'
             };
         case 2: // Medium (Yellow)
             return {
                 container: 'bg-[#FCBF49] border-[#FCBF49] shadow-sm',
-                text: 'text-[#3D405B] font-medium', // Dark text on Yellow
+                text: 'text-[#3D405B]', // Dark text on Yellow
+                contentDecor: '',
                 iconColor: 'text-[#3D405B]/50 hover:text-[#3D405B]',
                 checkboxBorder: 'border-[#3D405B]/30 hover:border-[#3D405B]',
-                checkboxChecked: 'bg-[#3D405B] border-[#3D405B] text-[#FCBF49]'
+                checkboxChecked: 'bg-[#3D405B] border-[#3D405B] text-[#FCBF49]',
+                subtaskBg: 'bg-black/5'
             };
         case 3: // Low-Medium (Green/Sage)
             return {
                 container: 'bg-[#81B29A] border-[#81B29A] shadow-sm',
-                text: 'text-white font-medium',
+                text: 'text-white',
+                contentDecor: '',
                 iconColor: 'text-white/60 hover:text-white',
                 checkboxBorder: 'border-white/60 hover:border-white',
-                checkboxChecked: 'bg-white border-white text-[#81B29A]'
+                checkboxChecked: 'bg-white border-white text-[#81B29A]',
+                subtaskBg: 'bg-black/10'
             };
         default: // Low/Default (White)
             return {
                 container: 'bg-white border-stone-200 shadow-sm',
                 text: 'text-dark',
+                contentDecor: '',
                 iconColor: 'text-stone-300 hover:text-stone-500',
                 checkboxBorder: 'border-gray-300 hover:border-primary',
-                checkboxChecked: 'bg-secondary border-secondary text-white'
+                checkboxChecked: 'bg-secondary border-secondary text-white',
+                subtaskBg: 'bg-gray-50'
             };
     }
   };
 
   const styles = getTaskStyles(index, task.isCompleted);
+  const subtasks = task.subtasks || [];
+  const hasSubtasks = subtasks.length > 0;
+
+  const handleSubtaskAdd = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if(newSubtaskInput.trim()) {
+          await addSubtask(task.id, newSubtaskInput.trim());
+          setNewSubtaskInput('');
+          // Keep input open to add more
+      }
+  };
+
+  // Local DnD for Subtasks
+  const subtaskSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleSubtaskDragEnd = (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (active.id !== over?.id && subtasks) {
+          const oldIndex = subtasks.findIndex((s: Subtask) => s.id === active.id);
+          const newIndex = subtasks.findIndex((s: Subtask) => s.id === over?.id);
+          const newSubtasks = arrayMove(subtasks, oldIndex, newIndex);
+          reorderSubtasks(task.id, newSubtasks);
+      }
+  };
 
   return (
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`group flex items-center p-3.5 rounded-xl mb-3 transition-all duration-200 border ${styles.container}`}
+      className={`group flex flex-col rounded-xl mb-3 transition-all duration-200 border ${styles.container}`}
     >
-      {/* Drag Handle */}
-      {!task.isCompleted && editingId !== task.id && (
-        <div {...attributes} {...listeners} className={`mr-2 cursor-grab active:cursor-grabbing ${styles.iconColor}`}>
-          <GripVertical size={18} />
-        </div>
-      )}
+      <div className="flex items-center p-3.5">
+          {/* Drag Handle */}
+          {!task.isCompleted && editingId !== task.id && (
+            <div {...attributes} {...listeners} className={`mr-2 cursor-grab active:cursor-grabbing ${styles.iconColor}`}>
+              <GripVertical size={18} />
+            </div>
+          )}
 
-      {/* Checkbox */}
-      <button 
-        onClick={() => handleToggleRequest(task)}
-        className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors mr-3
-          ${task.isCompleted 
-            ? styles.checkboxChecked
-            : `${styles.checkboxBorder} text-transparent`}`}
-      >
-        <Check size={14} strokeWidth={3} />
-      </button>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        {editingId === task.id ? (
-          <div className="flex items-center gap-2">
-            <input 
-              type="text" 
-              value={editInput}
-              onChange={(e) => setEditInput(e.target.value)}
-              className="w-full bg-white text-dark border border-primary/30 rounded px-2 py-1 text-sm outline-none shadow-inner"
-              autoFocus
-              onKeyDown={(e) => {
-                if(e.key === 'Enter') saveEdit(task.id);
-              }}
-            />
-            <button onClick={() => saveEdit(task.id)} className="bg-white text-green-600 hover:bg-green-50 p-1 rounded shadow-sm"><Check size={16}/></button>
-            <button onClick={() => setEditingId(null)} className="bg-white text-red-500 hover:bg-red-50 p-1 rounded shadow-sm"><X size={16}/></button>
-          </div>
-        ) : (
-          <span className={`block truncate ${styles.text}`}>
-            {task.content}
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
-        {!task.isCompleted && editingId !== task.id && (
-          <button onClick={() => startEdit(task.id, task.content)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10`}>
-            <Edit2 size={16} />
+          {/* Checkbox */}
+          <button 
+            onClick={() => handleToggleRequest(task)}
+            className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors mr-3
+              ${task.isCompleted 
+                ? styles.checkboxChecked
+                : `${styles.checkboxBorder} text-transparent`}`}
+          >
+            <Check size={14} strokeWidth={3} />
           </button>
-        )}
-        <button onClick={() => removeTask(task.id)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10 hover:text-red-200`}>
-          <Trash2 size={16} />
-        </button>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            {editingId === task.id ? (
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={editInput}
+                  onChange={(e) => setEditInput(e.target.value)}
+                  className="w-full bg-white text-dark border border-primary/30 rounded px-2 py-1 text-sm outline-none shadow-inner"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if(e.key === 'Enter') saveEdit(task.id);
+                  }}
+                />
+                <button onClick={() => saveEdit(task.id)} className="bg-white text-green-600 hover:bg-green-50 p-1 rounded shadow-sm"><Check size={16}/></button>
+                <button onClick={() => setEditingId(null)} className="bg-white text-red-500 hover:bg-red-50 p-1 rounded shadow-sm"><X size={16}/></button>
+              </div>
+            ) : (
+              <span className={`block truncate font-medium ${styles.text} ${styles.contentDecor}`}>
+                {task.content}
+              </span>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1 ml-2">
+            {!task.isCompleted && (
+                <>
+                    <button 
+                        onClick={() => {
+                            if(!isExpanded) setIsExpanded(true);
+                            setShowSubInput(!showSubInput);
+                        }} 
+                        className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10`}
+                        title={t('add_subtask_placeholder')}
+                    >
+                        <Plus size={16} />
+                    </button>
+                    {editingId !== task.id && (
+                        <button onClick={() => startEdit(task.id, task.content)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity`}>
+                            <Edit2 size={16} />
+                        </button>
+                    )}
+                </>
+            )}
+            
+            {(hasSubtasks || showSubInput) && (
+                 <button 
+                    onClick={() => setIsExpanded(!isExpanded)} 
+                    className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10`}
+                >
+                    {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                 </button>
+            )}
+
+            <button onClick={() => removeTask(task.id)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10 hover:text-red-200 opacity-0 group-hover:opacity-100 transition-opacity`}>
+              <Trash2 size={16} />
+            </button>
+          </div>
       </div>
+
+      {/* Subtasks Area */}
+      {isExpanded && (
+          <div className={`px-4 pb-3 pt-1 ${styles.subtaskBg} rounded-b-xl border-t border-white/10 mx-1 mb-1`}>
+              {/* List Subtasks */}
+              {hasSubtasks && (
+                  <div className="mb-2 pl-2">
+                      <DndContext 
+                          sensors={subtaskSensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleSubtaskDragEnd}
+                      >
+                          <SortableContext 
+                             items={subtasks.map((s: Subtask) => s.id)}
+                             strategy={verticalListSortingStrategy}
+                          >
+                              {subtasks.map((sub: Subtask, idx: number) => (
+                                  <SortableSubtaskItem 
+                                      key={sub.id} 
+                                      subtask={sub} 
+                                      index={idx} 
+                                      taskId={task.id} 
+                                      styles={styles} 
+                                  />
+                              ))}
+                          </SortableContext>
+                      </DndContext>
+                  </div>
+              )}
+
+              {/* Add Subtask Input */}
+              {showSubInput && (
+                  <form onSubmit={handleSubtaskAdd} className="flex items-center gap-2 pl-4 mt-2">
+                      <CornerDownRight size={14} className={styles.iconColor} />
+                      <input
+                          type="text"
+                          value={newSubtaskInput}
+                          onChange={(e) => setNewSubtaskInput(e.target.value)}
+                          placeholder={t('add_subtask_placeholder')}
+                          className="flex-1 bg-white/20 text-white placeholder-white/50 border border-white/30 rounded px-2 py-1 text-xs outline-none focus:bg-white focus:text-dark focus:placeholder-gray-400 transition-all"
+                          autoFocus
+                      />
+                      <button 
+                          type="submit" 
+                          disabled={!newSubtaskInput.trim()}
+                          className={`p-1 rounded bg-white/20 hover:bg-white/40 text-white disabled:opacity-30`}
+                      >
+                          <Plus size={14} />
+                      </button>
+                  </form>
+              )}
+          </div>
+      )}
     </div>
   );
 };
@@ -191,7 +379,7 @@ const TaskList: React.FC = () => {
   
   // DnD Sensors
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -200,9 +388,17 @@ const TaskList: React.FC = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
-    if (active.id !== over?.id) {
+    // Safety check: ensure we are reordering Main Tasks, not Subtasks bubbling up
+    // (Though separate DndContexts should prevent this, it's good practice)
+    if (!over || active.id === over.id) return;
+
+    // Check if active item is a main task (exists in tasks array)
+    const isMainTask = tasks.some(t => t.id === active.id);
+    if (!isMainTask) return; 
+
+    if (active.id !== over.id) {
       const oldIndex = tasks.findIndex((t) => t.id === active.id);
-      const newIndex = tasks.findIndex((t) => t.id === over?.id);
+      const newIndex = tasks.findIndex((t) => t.id === over.id);
       
       const newTasks = arrayMove(tasks, oldIndex, newIndex);
       reorderTasks(newTasks);

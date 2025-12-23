@@ -1,3 +1,9 @@
+export interface Subtask {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+}
+
 export interface Task {
   id: string;
   content: string;
@@ -6,6 +12,7 @@ export interface Task {
   userId: string;
   createdAt: number;
   order: number; // For drag and drop priority
+  subtasks?: Subtask[]; // New field for subtasks
 }
 
 export interface User {

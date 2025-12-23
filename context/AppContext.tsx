@@ -7,7 +7,7 @@ import 'firebase/compat/auth';
 import { format, addDays, endOfMonth, isSameDay, startOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-import { Task, User } from '../types';
+import { Task, User, Subtask } from '../types';
 import * as taskService from '../services/taskService';
 
 // Translation Dictionary
@@ -55,6 +55,9 @@ const translations: Record<string, Record<string, string>> = {
     "no_tasks": "No tasks for this day.",
     "no_tasks_sub": "Focus on what matters most.",
     "ivy_lee_tip": "Ivy Lee Method: Drag tasks to reorder priority. Top is highest.",
+    
+    // Subtasks
+    "add_subtask_placeholder": "Add a subtask...",
     
     // Modal
     "modal_title": "Complete Task?",
@@ -119,7 +122,10 @@ const translations: Record<string, Record<string, string>> = {
     "no_tasks": "Chưa có công việc cho ngày này.",
     "no_tasks_sub": "Tập trung vào điều quan trọng nhất.",
     "ivy_lee_tip": "Phương pháp Ivy Lee: Kéo thả để sắp xếp ưu tiên. Trên cùng là quan trọng nhất.",
-    
+
+    // Subtasks
+    "add_subtask_placeholder": "Thêm việc nhỏ...",
+
     // Modal
     "modal_title": "Hoàn thành?",
     "modal_desc": "Bạn đã thực sự hoàn thành",
@@ -175,6 +181,12 @@ interface AppContextType {
   refreshTasks: () => void;
   fetchMonthlyStats: (monthDate: Date) => Promise<void>;
   syncTasksToGoogleCalendar: (tasksToSync: Task[], date: Date) => Promise<void>;
+  
+  // Subtask methods
+  addSubtask: (taskId: string, content: string) => Promise<void>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  removeSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  reorderSubtasks: (taskId: string, newSubtasks: Subtask[]) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -459,6 +471,70 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Sync to DB
       await taskService.updateTasksOrder(user.uid, orderedTasks);
   };
+  
+  // --- SUBTASK OPERATIONS ---
+  const addSubtask = async (taskId: string, content: string) => {
+    if (!user) return;
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+    
+    const newSubtask: Subtask = {
+        id: `sub_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        content,
+        isCompleted: false
+    };
+    
+    const updatedSubtasks = [...(tasks[taskIndex].subtasks || []), newSubtask];
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], subtasks: updatedSubtasks };
+    
+    setTasks(updatedTasks);
+    await taskService.updateSubtasks(user.uid, taskId, updatedSubtasks);
+  };
+
+  const toggleSubtask = async (taskId: string, subtaskId: string) => {
+    if (!user) return;
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+
+    const currentSubtasks = tasks[taskIndex].subtasks || [];
+    const updatedSubtasks = currentSubtasks.map(s => 
+        s.id === subtaskId ? { ...s, isCompleted: !s.isCompleted } : s
+    );
+
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], subtasks: updatedSubtasks };
+    
+    setTasks(updatedTasks);
+    await taskService.updateSubtasks(user.uid, taskId, updatedSubtasks);
+  };
+
+  const removeSubtask = async (taskId: string, subtaskId: string) => {
+    if (!user) return;
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return;
+
+    const currentSubtasks = tasks[taskIndex].subtasks || [];
+    const updatedSubtasks = currentSubtasks.filter(s => s.id !== subtaskId);
+
+    const updatedTasks = [...tasks];
+    updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], subtasks: updatedSubtasks };
+    
+    setTasks(updatedTasks);
+    await taskService.updateSubtasks(user.uid, taskId, updatedSubtasks);
+  };
+
+  const reorderSubtasks = async (taskId: string, newSubtasks: Subtask[]) => {
+      if (!user) return;
+      const taskIndex = tasks.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) return;
+
+      const updatedTasks = [...tasks];
+      updatedTasks[taskIndex] = { ...updatedTasks[taskIndex], subtasks: newSubtasks };
+      
+      setTasks(updatedTasks);
+      await taskService.updateSubtasks(user.uid, taskId, newSubtasks);
+  };
 
   // Google Calendar Sync
   const syncTasksToGoogleCalendar = async (tasksToSync: Task[], date: Date) => {
@@ -500,10 +576,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const createEvent = async (task: Task, authToken: string) => {
           const startStr = format(date, 'yyyy-MM-dd');
           const endStr = format(addDays(date, 1), 'yyyy-MM-dd');
+          
+          let description = `Created via FocusFlow on ${startStr}`;
+          
+          // Add Subtasks to description if they exist
+          if (task.subtasks && task.subtasks.length > 0) {
+              description += '\n\nSubtasks:';
+              task.subtasks.forEach((st, idx) => {
+                  const check = st.isCompleted ? '[x]' : '[ ]';
+                  description += `\n${idx + 1}. ${check} ${st.content}`;
+              });
+          }
 
           const event = {
               summary: `[FocusFlow] ${task.content}`,
-              description: `Created via FocusFlow on ${startStr}`,
+              description: description,
               start: { date: startStr },
               end: { date: endStr },
               transparency: "transparent"
@@ -575,7 +662,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       reorderTasks,
       refreshTasks: fetchTasks,
       fetchMonthlyStats,
-      syncTasksToGoogleCalendar
+      syncTasksToGoogleCalendar,
+      // Subtasks
+      addSubtask,
+      toggleSubtask,
+      removeSubtask,
+      reorderSubtasks
     }}>
       {children}
     </AppContext.Provider>
