@@ -49,34 +49,78 @@ const SortableTaskItem = ({
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 10 : 1,
-    opacity: isDragging ? 0.8 : 1,
+    opacity: isDragging ? 0.9 : 1,
   };
 
-  // Logic màu ưu tiên cao xuống thấp
-  const getPriorityStyle = (idx: number) => {
-    // 0: High Priority (Red) -> 4: Low Priority (Blue/Gray)
-    if (task.isCompleted) return 'border-l-4 border-l-stone-200 bg-stone-50'; // Completed styling overrides priority
-    
+  // Hàm xác định bộ màu sắc dựa trên mức độ ưu tiên
+  const getTaskStyles = (idx: number, isCompleted: boolean) => {
+    // Nếu đã hoàn thành: Màu xám nhạt, chữ chìm
+    if (isCompleted) {
+      return {
+        container: 'bg-stone-100 border-stone-200',
+        text: 'text-stone-400 line-through decoration-stone-400',
+        iconColor: 'text-stone-300',
+        checkboxBorder: 'border-stone-300',
+        checkboxChecked: 'bg-stone-400 border-stone-400 text-white'
+      };
+    }
+
+    // Logic màu theo thứ tự ưu tiên
     switch (idx) {
-        case 0: return 'border-l-4 border-l-[#D62828] bg-white'; // Strong Red
-        case 1: return 'border-l-4 border-l-[#F77F00] bg-white'; // Orange
-        case 2: return 'border-l-4 border-l-[#FCBF49] bg-white'; // Yellow/Gold
-        case 3: return 'border-l-4 border-l-[#81B29A] bg-white'; // Green (Secondary)
-        default: return 'border-l-4 border-l-stone-300 bg-white'; // Default
+        case 0: // High Priority (Red)
+            return {
+                container: 'bg-[#D62828] border-[#D62828] shadow-md', // Red background
+                text: 'text-white font-medium', // High contrast white text
+                iconColor: 'text-white/60 hover:text-white', // Subtle icons
+                checkboxBorder: 'border-white/60 hover:border-white', // White border for checkbox
+                checkboxChecked: 'bg-white border-white text-[#D62828]' // Inverted when checked
+            };
+        case 1: // Medium-High (Orange)
+            return {
+                container: 'bg-[#F77F00] border-[#F77F00] shadow-md',
+                text: 'text-white font-medium',
+                iconColor: 'text-white/60 hover:text-white',
+                checkboxBorder: 'border-white/60 hover:border-white',
+                checkboxChecked: 'bg-white border-white text-[#F77F00]'
+            };
+        case 2: // Medium (Yellow)
+            return {
+                container: 'bg-[#FCBF49] border-[#FCBF49] shadow-sm',
+                text: 'text-[#3D405B] font-medium', // Dark text on Yellow
+                iconColor: 'text-[#3D405B]/50 hover:text-[#3D405B]',
+                checkboxBorder: 'border-[#3D405B]/30 hover:border-[#3D405B]',
+                checkboxChecked: 'bg-[#3D405B] border-[#3D405B] text-[#FCBF49]'
+            };
+        case 3: // Low-Medium (Green/Sage)
+            return {
+                container: 'bg-[#81B29A] border-[#81B29A] shadow-sm',
+                text: 'text-white font-medium',
+                iconColor: 'text-white/60 hover:text-white',
+                checkboxBorder: 'border-white/60 hover:border-white',
+                checkboxChecked: 'bg-white border-white text-[#81B29A]'
+            };
+        default: // Low/Default (White)
+            return {
+                container: 'bg-white border-stone-200 shadow-sm',
+                text: 'text-dark',
+                iconColor: 'text-stone-300 hover:text-stone-500',
+                checkboxBorder: 'border-gray-300 hover:border-primary',
+                checkboxChecked: 'bg-secondary border-secondary text-white'
+            };
     }
   };
 
-  const priorityClass = getPriorityStyle(index);
+  const styles = getTaskStyles(index, task.isCompleted);
 
   return (
     <div 
       ref={setNodeRef} 
       style={style}
-      className={`group flex items-center p-3 rounded-lg shadow-sm mb-3 transition-all duration-200 border-t border-r border-b border-stone-100 ${priorityClass}`}
+      className={`group flex items-center p-3.5 rounded-xl mb-3 transition-all duration-200 border ${styles.container}`}
     >
       {/* Drag Handle */}
       {!task.isCompleted && editingId !== task.id && (
-        <div {...attributes} {...listeners} className="mr-2 text-stone-300 cursor-grab active:cursor-grabbing hover:text-stone-500">
+        <div {...attributes} {...listeners} className={`mr-2 cursor-grab active:cursor-grabbing ${styles.iconColor}`}>
           <GripVertical size={18} />
         </div>
       )}
@@ -86,8 +130,8 @@ const SortableTaskItem = ({
         onClick={() => handleToggleRequest(task)}
         className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-colors mr-3
           ${task.isCompleted 
-            ? 'bg-secondary border-secondary text-white' 
-            : 'border-gray-300 text-transparent hover:border-primary'}`}
+            ? styles.checkboxChecked
+            : `${styles.checkboxBorder} text-transparent`}`}
       >
         <Check size={14} strokeWidth={3} />
       </button>
@@ -100,17 +144,17 @@ const SortableTaskItem = ({
               type="text" 
               value={editInput}
               onChange={(e) => setEditInput(e.target.value)}
-              className="w-full bg-white border border-primary/30 rounded px-2 py-1 text-sm outline-none"
+              className="w-full bg-white text-dark border border-primary/30 rounded px-2 py-1 text-sm outline-none shadow-inner"
               autoFocus
               onKeyDown={(e) => {
                 if(e.key === 'Enter') saveEdit(task.id);
               }}
             />
-            <button onClick={() => saveEdit(task.id)} className="text-green-600 hover:bg-green-50 p-1 rounded"><Check size={16}/></button>
-            <button onClick={() => setEditingId(null)} className="text-red-500 hover:bg-red-50 p-1 rounded"><X size={16}/></button>
+            <button onClick={() => saveEdit(task.id)} className="bg-white text-green-600 hover:bg-green-50 p-1 rounded shadow-sm"><Check size={16}/></button>
+            <button onClick={() => setEditingId(null)} className="bg-white text-red-500 hover:bg-red-50 p-1 rounded shadow-sm"><X size={16}/></button>
           </div>
         ) : (
-          <span className={`block truncate ${task.isCompleted ? 'text-gray-400 line-through decoration-secondary' : 'text-dark'}`}>
+          <span className={`block truncate ${styles.text}`}>
             {task.content}
           </span>
         )}
@@ -119,11 +163,11 @@ const SortableTaskItem = ({
       {/* Actions */}
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
         {!task.isCompleted && editingId !== task.id && (
-          <button onClick={() => startEdit(task.id, task.content)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-md transition-colors">
+          <button onClick={() => startEdit(task.id, task.content)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10`}>
             <Edit2 size={16} />
           </button>
         )}
-        <button onClick={() => removeTask(task.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors">
+        <button onClick={() => removeTask(task.id)} className={`p-1.5 rounded-md transition-colors ${styles.iconColor} hover:bg-black/10 hover:text-red-200`}>
           <Trash2 size={16} />
         </button>
       </div>
