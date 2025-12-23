@@ -13,15 +13,40 @@ const Pomodoro: React.FC = () => {
   
   // Refs for drift-proof timing
   const endTimeRef = useRef<number | null>(null);
+  
+  // Ref for AudioContext to persist it and handle Autoplay Policy
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Initialize or Resume AudioContext on User Gesture (Click)
+  const initAudio = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioContext();
+      }
+
+      // If suspended (common in Chrome until user interaction), resume it
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+    } catch (e) {
+      console.error("Audio init failed", e);
+    }
+  };
 
   const toggleTimer = () => {
     if (!isActive) {
-      // Request notification permission on first interaction
+      // 1. Request notification permission
       if ("Notification" in window && Notification.permission !== "granted") {
         Notification.requestPermission();
       }
       
-      // Set end time relative to current timeLeft
+      // 2. Unlock Audio Engine (CRITICAL for sound to play later)
+      initAudio();
+
+      // 3. Set end time
       endTimeRef.current = Date.now() + timeLeft * 1000;
     } else {
       endTimeRef.current = null;
@@ -45,10 +70,15 @@ const Pomodoro: React.FC = () => {
   // Web Audio API Beep
   const playNotificationSound = () => {
     try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      
-      const ctx = new AudioContext();
+      // Ensure context exists (fallback if initAudio failed somehow)
+      if (!audioCtxRef.current) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) audioCtxRef.current = new AudioContext();
+      }
+
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -94,7 +124,7 @@ const Pomodoro: React.FC = () => {
   }, [isActive]);
 
   const handleTimerComplete = () => {
-    // 1. Play Sound (Web Audio API - No external assets)
+    // 1. Play Sound (Now reliable due to initAudio)
     playNotificationSound();
 
     // 2. Send Browser Notification
@@ -112,6 +142,7 @@ const Pomodoro: React.FC = () => {
             icon: 'https://cdn-icons-png.flaticon.com/512/3209/3209978.png'
          });
        } else if (Notification.permission !== "denied") {
+          // Attempt to request again, though usually needs gesture
           Notification.requestPermission().then(permission => {
             if (permission === "granted") {
               new Notification(title, { body });
