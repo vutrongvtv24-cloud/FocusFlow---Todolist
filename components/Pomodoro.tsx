@@ -46,8 +46,13 @@ const Pomodoro: React.FC = () => {
       // 2. Unlock Audio Engine (CRITICAL for sound to play later)
       initAudio();
 
-      // 3. Set end time
-      endTimeRef.current = Date.now() + timeLeft * 1000;
+      // 3. Set end time if starting fresh or resuming
+      if (!endTimeRef.current) {
+          endTimeRef.current = Date.now() + timeLeft * 1000;
+      } else {
+          // Resuming from pause requires recalculating end time based on current timeLeft
+           endTimeRef.current = Date.now() + timeLeft * 1000;
+      }
     } else {
       endTimeRef.current = null;
     }
@@ -100,7 +105,40 @@ const Pomodoro: React.FC = () => {
     }
   };
 
+  // Logic to handle auto-switching when timer ends
+  const handleTimerCycle = () => {
+    // 1. Play Sound
+    playNotificationSound();
+
+    // 2. Send Browser Notification for the COMPLETED session
+    if ("Notification" in window) {
+       const titleKey = mode === 'focus' ? 'pomo_done_focus_title' : 'pomo_done_break_title';
+       const bodyKey = mode === 'focus' ? 'pomo_done_focus_msg' : 'pomo_done_break_msg';
+       const title = t(titleKey);
+       const body = t(bodyKey);
+
+       if (Notification.permission === "granted") {
+         new Notification(title, { body, icon: '/vite.svg' });
+       }
+    }
+
+    // 3. Switch Mode & Restart
+    const nextMode = mode === 'focus' ? 'break' : 'focus';
+    const nextTime = nextMode === 'focus' ? FOCUS_TIME : BREAK_TIME;
+
+    setMode(nextMode);
+    setTimeLeft(nextTime);
+    
+    // IMPORTANT: Automatically set the next end time to keep the loop running
+    // We add a small buffer (1000ms) to ensure UI transition is smooth
+    endTimeRef.current = Date.now() + nextTime * 1000;
+    
+    // Ensure active state remains true
+    setIsActive(true);
+  };
+
   // Handle Timer Logic (Drift-proof)
+  // Added [mode] dependency so the effect refreshes when auto-switch happens
   useEffect(() => {
     if (isActive) {
       const interval = setInterval(() => {
@@ -110,47 +148,16 @@ const Pomodoro: React.FC = () => {
         const diff = Math.ceil((endTimeRef.current - now) / 1000);
         
         if (diff <= 0) {
-          setTimeLeft(0);
-          setIsActive(false);
-          endTimeRef.current = null;
-          handleTimerComplete();
+          // Timer finished -> Trigger Cycle
+          handleTimerCycle();
         } else {
           setTimeLeft(diff);
         }
-      }, 200); // Check more frequently than 1s for better UI responsiveness
+      }, 200); // Check frequently
 
       return () => clearInterval(interval);
     }
-  }, [isActive]);
-
-  const handleTimerComplete = () => {
-    // 1. Play Sound (Now reliable due to initAudio)
-    playNotificationSound();
-
-    // 2. Send Browser Notification
-    if ("Notification" in window) {
-       // Determine text based on mode that JUST finished
-       const titleKey = mode === 'focus' ? 'pomo_done_focus_title' : 'pomo_done_break_title';
-       const bodyKey = mode === 'focus' ? 'pomo_done_focus_msg' : 'pomo_done_break_msg';
-       
-       const title = t(titleKey);
-       const body = t(bodyKey);
-
-       if (Notification.permission === "granted") {
-         new Notification(title, { 
-            body: body,
-            icon: 'https://cdn-icons-png.flaticon.com/512/3209/3209978.png'
-         });
-       } else if (Notification.permission !== "denied") {
-          // Attempt to request again, though usually needs gesture
-          Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-              new Notification(title, { body });
-            }
-          });
-       }
-    }
-  };
+  }, [isActive, mode]); // Re-run effect when mode changes to pick up new endTimeRef
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
