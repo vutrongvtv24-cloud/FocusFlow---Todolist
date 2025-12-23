@@ -133,7 +133,8 @@ const SortableTaskItem = ({
         iconColor: 'text-stone-300',
         checkboxBorder: 'border-stone-300',
         checkboxChecked: 'bg-stone-400 border-stone-400 text-white',
-        subtaskBg: 'bg-stone-50'
+        subtaskBg: 'bg-stone-50',
+        badge: 'bg-stone-200 text-stone-400'
       };
     }
 
@@ -147,7 +148,8 @@ const SortableTaskItem = ({
                 iconColor: 'text-white/60 hover:text-white', // Subtle icons
                 checkboxBorder: 'border-white/60 hover:border-white', // White border for checkbox
                 checkboxChecked: 'bg-white border-white text-[#D62828]', // Inverted when checked
-                subtaskBg: 'bg-black/10'
+                subtaskBg: 'bg-black/10',
+                badge: 'bg-white/20 text-white'
             };
         case 1: // Medium-High (Orange)
             return {
@@ -157,7 +159,8 @@ const SortableTaskItem = ({
                 iconColor: 'text-white/60 hover:text-white',
                 checkboxBorder: 'border-white/60 hover:border-white',
                 checkboxChecked: 'bg-white border-white text-[#F77F00]',
-                subtaskBg: 'bg-black/10'
+                subtaskBg: 'bg-black/10',
+                badge: 'bg-white/20 text-white'
             };
         case 2: // Medium (Yellow)
             return {
@@ -167,7 +170,8 @@ const SortableTaskItem = ({
                 iconColor: 'text-[#3D405B]/50 hover:text-[#3D405B]',
                 checkboxBorder: 'border-[#3D405B]/30 hover:border-[#3D405B]',
                 checkboxChecked: 'bg-[#3D405B] border-[#3D405B] text-[#FCBF49]',
-                subtaskBg: 'bg-black/5'
+                subtaskBg: 'bg-black/5',
+                badge: 'bg-black/10 text-[#3D405B]/80'
             };
         case 3: // Low-Medium (Green/Sage)
             return {
@@ -177,7 +181,8 @@ const SortableTaskItem = ({
                 iconColor: 'text-white/60 hover:text-white',
                 checkboxBorder: 'border-white/60 hover:border-white',
                 checkboxChecked: 'bg-white border-white text-[#81B29A]',
-                subtaskBg: 'bg-black/10'
+                subtaskBg: 'bg-black/10',
+                badge: 'bg-white/20 text-white'
             };
         default: // Low/Default (White)
             return {
@@ -187,7 +192,8 @@ const SortableTaskItem = ({
                 iconColor: 'text-stone-300 hover:text-stone-500',
                 checkboxBorder: 'border-gray-300 hover:border-primary',
                 checkboxChecked: 'bg-secondary border-secondary text-white',
-                subtaskBg: 'bg-gray-50'
+                subtaskBg: 'bg-gray-50',
+                badge: 'bg-stone-100 text-stone-500'
             };
     }
   };
@@ -195,6 +201,10 @@ const SortableTaskItem = ({
   const styles = getTaskStyles(index, task.isCompleted);
   const subtasks = task.subtasks || [];
   const hasSubtasks = subtasks.length > 0;
+  
+  // Calculate Subtask Progress
+  const completedSubtasks = subtasks.filter((s: Subtask) => s.isCompleted).length;
+  const progressPercentage = hasSubtasks ? Math.round((completedSubtasks / subtasks.length) * 100) : 0;
 
   const handleSubtaskAdd = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -264,9 +274,18 @@ const SortableTaskItem = ({
                 <button onClick={() => setEditingId(null)} className="bg-white text-red-500 hover:bg-red-50 p-1 rounded shadow-sm"><X size={16}/></button>
               </div>
             ) : (
-              <span className={`block truncate font-medium ${styles.text} ${styles.contentDecor}`}>
-                {task.content}
-              </span>
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className={`block truncate font-medium ${styles.text} ${styles.contentDecor}`}>
+                    {task.content}
+                </span>
+                
+                {/* Progress Badge */}
+                {hasSubtasks && !task.isCompleted && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ml-1 ${styles.badge}`}>
+                        {progressPercentage}%
+                    </span>
+                )}
+              </div>
             )}
           </div>
 
