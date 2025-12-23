@@ -12,8 +12,8 @@ const Dashboard: React.FC = () => {
   const { user, logout, t, toggleLanguage, language } = useAppContext();
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 font-sans">
-      <header className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+    <div className="min-h-screen bg-background p-4 md:p-8 font-sans flex flex-col">
+      <header className="max-w-6xl mx-auto w-full flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
         <div className="flex items-center gap-2">
           <div className="bg-primary text-white p-2 rounded-lg">
              <Layout size={24} />
@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
         {/* Left Column (Desktop) / Bottom (Mobile): Calendar */}
         <div className="lg:col-span-3 space-y-6 order-3 lg:order-1">
           <CalendarView />
@@ -72,6 +72,17 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </main>
+
+      <footer className="mt-12 mb-2 text-center">
+        <a 
+          href="https://zalo.me/0835242357" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-xs text-gray-400 hover:text-primary transition-colors font-medium opacity-60 hover:opacity-100"
+        >
+          Vũ Trọng | Zalo: 0835.242.357
+        </a>
+      </footer>
     </div>
   );
 };

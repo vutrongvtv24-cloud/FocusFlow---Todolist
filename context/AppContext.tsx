@@ -190,6 +190,8 @@ const getInitialView = (): AppView => {
   return 'home';
 };
 
+const GUEST_FLAG_KEY = 'focusflow_is_guest';
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -223,12 +225,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Compat usage: auth.onAuthStateChanged
     const unsubscribe = auth.onAuthStateChanged((currentUser: any) => {
-      if (user?.uid === 'guest') return;
-      setUser(currentUser as unknown as User);
+      if (currentUser) {
+        // User logged in via Firebase
+        setUser(currentUser as unknown as User);
+        localStorage.removeItem(GUEST_FLAG_KEY); // Remove guest flag if real login occurs
+      } else {
+        // No firebase user, check if we were a guest
+        const isGuest = localStorage.getItem(GUEST_FLAG_KEY);
+        if (isGuest === 'true') {
+           setUser({
+              uid: 'guest',
+              displayName: language === 'vi' ? 'Khách' : 'Guest User',
+              email: 'guest@example.com',
+              photoURL: null,
+           } as User);
+        } else {
+           setUser(null);
+        }
+      }
       setLoadingAuth(false);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user]); // Re-run if user object ref changes, though mainly auth state drives this
 
   // Fetch Tasks for selected date
   const fetchTasks = async () => {
@@ -332,6 +350,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const signInAsGuest = () => {
+    // Save guest state to localStorage
+    localStorage.setItem(GUEST_FLAG_KEY, 'true');
     setUser({
       uid: 'guest',
       displayName: language === 'vi' ? 'Khách' : 'Guest User',
@@ -343,6 +363,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const logout = async () => {
     if (user?.uid === 'guest') {
+      localStorage.removeItem(GUEST_FLAG_KEY);
       setUser(null);
     } else {
       if (auth) {

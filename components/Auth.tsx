@@ -57,15 +57,26 @@ const Auth: React.FC = () => {
           <p>{t('auth_focus_msg')}</p>
         </div>
 
-        {/* Legal Links */}
-        <div className="mt-8 pt-4 border-t border-gray-100 flex justify-center gap-4 text-xs text-gray-400">
-           <button onClick={() => navigateTo('privacy')} className="hover:text-primary hover:underline">
-             Privacy Policy
-           </button>
-           <span>•</span>
-           <button onClick={() => navigateTo('terms')} className="hover:text-primary hover:underline">
-             Terms of Service
-           </button>
+        {/* Legal Links & Author Info */}
+        <div className="mt-8 pt-4 border-t border-gray-100 flex flex-col items-center gap-3">
+           <div className="flex justify-center gap-4 text-xs text-gray-400">
+             <button onClick={() => navigateTo('privacy')} className="hover:text-primary hover:underline">
+               Privacy Policy
+             </button>
+             <span>•</span>
+             <button onClick={() => navigateTo('terms')} className="hover:text-primary hover:underline">
+               Terms of Service
+             </button>
+           </div>
+           
+           <a 
+              href="https://zalo.me/0835242357" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="text-xs text-gray-400 hover:text-primary transition-colors font-medium opacity-60 hover:opacity-100 block mt-1"
+            >
+              Vũ Trọng | Zalo: 0835.242.357
+            </a>
         </div>
       </div>
     </div>
