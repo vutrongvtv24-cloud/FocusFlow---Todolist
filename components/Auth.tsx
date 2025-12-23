@@ -1,33 +1,9 @@
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LogIn, Focus, User, Globe, AlertCircle, Copy, CheckCircle2 } from 'lucide-react';
+import { LogIn, Focus, User, Globe } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const { signIn, signInAsGuest, t, toggleLanguage, language, navigateTo } = useAppContext();
-  const currentDomain = window.location.hostname;
-  
-  // Calculate the required Redirect URI
-  // Safely access env
-  const env = import.meta.env || ({} as any);
-  
-  // Logic to determine Project ID:
-  // 1. Explicit Env Var
-  // 2. Extracted from Auth Domain (e.g., project-id.firebaseapp.com)
-  // 3. Fallback to 'todolist-pomo' based on user logs
-  let projectId = env.VITE_FIREBASE_PROJECT_ID;
-  if (!projectId && env.VITE_FIREBASE_AUTH_DOMAIN) {
-    projectId = env.VITE_FIREBASE_AUTH_DOMAIN.split('.')[0];
-  }
-  if (!projectId) {
-    projectId = 'todolist-pomo';
-  }
-
-  const redirectUri = `https://${projectId}.firebaseapp.com/__/auth/handler`;
-
-  const copyText = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('Copied: ' + text);
-  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4 py-8 relative">
@@ -90,58 +66,6 @@ const Auth: React.FC = () => {
            <button onClick={() => navigateTo('terms')} className="hover:text-primary hover:underline">
              Terms of Service
            </button>
-        </div>
-      </div>
-
-      {/* Troubleshooting Section */}
-      <div className="max-w-md w-full mt-6">
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 shadow-sm text-left">
-           <div className="flex items-center gap-2 mb-3">
-             <AlertCircle className="text-orange-600" size={18} />
-             <h3 className="font-bold text-orange-900 text-sm">{t('auth_trouble_title')}</h3>
-           </div>
-           
-           <p className="text-xs text-orange-800 mb-4">{t('auth_trouble_intro')}</p>
-
-           <div className="space-y-4">
-             {/* Step 1 */}
-             <div>
-               <p className="text-xs font-bold text-orange-900 mb-1 flex items-center gap-1">
-                 <span className="w-4 h-4 rounded-full bg-orange-200 text-orange-800 flex items-center justify-center text-[10px]">1</span>
-                 {t('auth_step_1_label')}
-               </p>
-               <p className="text-[10px] text-orange-800/80 mb-1">{t('auth_step_1_desc')}</p>
-               <div 
-                  onClick={() => copyText(currentDomain)}
-                  className="flex items-center justify-between bg-white border border-orange-200 rounded px-2 py-1.5 cursor-pointer hover:border-orange-400 transition-colors group"
-                >
-                  <code className="font-mono text-[10px] text-orange-800 break-all">{currentDomain}</code>
-                  <Copy size={12} className="text-orange-300 group-hover:text-orange-500 flex-shrink-0 ml-2" />
-                </div>
-             </div>
-
-             {/* Step 2 */}
-             <div>
-               <p className="text-xs font-bold text-orange-900 mb-1 flex items-center gap-1">
-                 <span className="w-4 h-4 rounded-full bg-orange-200 text-orange-800 flex items-center justify-center text-[10px]">2</span>
-                 {t('auth_step_2_label')}
-               </p>
-               <p className="text-[10px] text-orange-800/80 mb-1">{t('auth_step_2_desc')}</p>
-               <div 
-                  onClick={() => copyText(redirectUri)}
-                  className="flex items-center justify-between bg-white border border-orange-200 rounded px-2 py-1.5 cursor-pointer hover:border-orange-400 transition-colors group"
-                >
-                  <code className="font-mono text-[10px] text-orange-800 break-all leading-tight">{redirectUri}</code>
-                  <Copy size={12} className="text-orange-300 group-hover:text-orange-500 flex-shrink-0 ml-2" />
-                </div>
-             </div>
-           </div>
-           
-           <div className="mt-4 pt-3 border-t border-orange-200/60 text-center">
-             <p className="text-[10px] text-orange-700 italic">
-               {t('auth_trouble_guest')}
-             </p>
-           </div>
         </div>
       </div>
     </div>
