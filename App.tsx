@@ -74,14 +74,18 @@ const Dashboard: React.FC = () => {
       </main>
 
       <footer className="mt-12 mb-2 text-center">
-        <a 
-          href="https://zalo.me/0835242357" 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          className="text-xs text-gray-400 hover:text-primary transition-colors font-medium opacity-60 hover:opacity-100"
-        >
-          Vũ Trọng | Zalo: 0835.242.357
-        </a>
+        <div className="text-xs text-gray-400 font-medium opacity-60 hover:opacity-100 transition-opacity">
+          <a 
+            href="https://zalo.me/0835242357" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:text-primary transition-colors"
+          >
+            Vũ Trọng | Zalo: 0835.242.357
+          </a>
+          <span className="mx-2">|</span>
+          <span>Ver 1.0</span>
+        </div>
       </footer>
     </div>
   );
