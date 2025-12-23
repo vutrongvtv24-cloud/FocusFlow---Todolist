@@ -5,6 +5,7 @@ export interface Task {
   date: string; // YYYY-MM-DD
   userId: string;
   createdAt: number;
+  order: number; // For drag and drop priority
 }
 
 export interface User {

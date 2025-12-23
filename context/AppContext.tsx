@@ -44,6 +44,7 @@ const translations: Record<string, Record<string, string>> = {
 
     // Task List
     "tasks_header": "Tasks",
+    "tasks_progress": "Progress",
     "sync": "Sync to Google Calendar",
     "syncing": "Syncing...",
     "sync_success": "Successfully added {n} tasks to your Google Calendar!",
@@ -53,7 +54,7 @@ const translations: Record<string, Record<string, string>> = {
     "limit_reached": "Daily limit reached (5 tasks)",
     "no_tasks": "No tasks for this day.",
     "no_tasks_sub": "Focus on what matters most.",
-    "ivy_lee_tip": "Ivy Lee Method: Limit yourself to the 6 most important things (we use 5 for extra focus).",
+    "ivy_lee_tip": "Ivy Lee Method: Drag tasks to reorder priority. Top is highest.",
     
     // Modal
     "modal_title": "Complete Task?",
@@ -107,6 +108,7 @@ const translations: Record<string, Record<string, string>> = {
 
     // Task List
     "tasks_header": "Công việc",
+    "tasks_progress": "Tiến độ",
     "sync": "Đồng bộ Google Calendar",
     "syncing": "Đang đồng bộ...",
     "sync_success": "Đã thêm thành công {n} công việc vào Google Calendar!",
@@ -116,7 +118,7 @@ const translations: Record<string, Record<string, string>> = {
     "limit_reached": "Đã đạt giới hạn ngày (5 việc)",
     "no_tasks": "Chưa có công việc cho ngày này.",
     "no_tasks_sub": "Tập trung vào điều quan trọng nhất.",
-    "ivy_lee_tip": "Phương pháp Ivy Lee: Giới hạn bản thân ở 6 việc quan trọng nhất (chúng tôi dùng 5 để tăng sự tập trung).",
+    "ivy_lee_tip": "Phương pháp Ivy Lee: Kéo thả để sắp xếp ưu tiên. Trên cùng là quan trọng nhất.",
     
     // Modal
     "modal_title": "Hoàn thành?",
@@ -169,6 +171,7 @@ interface AppContextType {
   toggleTask: (task: Task) => Promise<void>;
   removeTask: (taskId: string) => Promise<void>;
   editTask: (taskId: string, newContent: string) => Promise<void>;
+  reorderTasks: (newTasks: Task[]) => Promise<void>;
   refreshTasks: () => void;
   fetchMonthlyStats: (monthDate: Date) => Promise<void>;
   syncTasksToGoogleCalendar: (tasksToSync: Task[], date: Date) => Promise<void>;
@@ -440,6 +443,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await taskService.updateTaskContent(user.uid, taskId, newContent);
   }
 
+  // Handle reordering
+  const reorderTasks = async (newTasks: Task[]) => {
+      if (!user) return;
+      
+      // Update local state immediately for snappy UI
+      // We also need to update the 'order' property of each task based on index
+      const orderedTasks = newTasks.map((t, index) => ({
+          ...t,
+          order: index * 100 // Spaced out order
+      }));
+      
+      setTasks(orderedTasks);
+      
+      // Sync to DB
+      await taskService.updateTasksOrder(user.uid, orderedTasks);
+  };
+
   // Google Calendar Sync
   const syncTasksToGoogleCalendar = async (tasksToSync: Task[], date: Date) => {
       if (user?.uid === 'guest') {
@@ -552,6 +572,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleTask,
       removeTask,
       editTask,
+      reorderTasks,
       refreshTasks: fetchTasks,
       fetchMonthlyStats,
       syncTasksToGoogleCalendar

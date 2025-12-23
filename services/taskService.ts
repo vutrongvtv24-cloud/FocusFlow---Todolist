@@ -7,7 +7,7 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
-  Timestamp 
+  writeBatch
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Task } from '../types';
@@ -35,6 +35,8 @@ const docToTask = (doc: any): Task => {
   return {
     id: doc.id,
     ...data,
+    // Ensure order exists for legacy tasks
+    order: data.order ?? data.createdAt ?? 0 
   };
 };
 
@@ -43,7 +45,12 @@ export const fetchTasksForDate = async (userId: string, dateStr: string): Promis
   if (userId === 'guest') {
     const allTasks = getLocalTasks();
     const filtered = allTasks.filter(t => t.date === dateStr && t.userId === 'guest');
-    return filtered.sort((a, b) => a.createdAt - b.createdAt);
+    // Sort by order first, then createdAt
+    return filtered.sort((a, b) => {
+      const orderA = a.order ?? a.createdAt;
+      const orderB = b.order ?? b.createdAt;
+      return orderA - orderB;
+    });
   }
 
   // FIREBASE MODE
@@ -64,19 +71,22 @@ export const fetchTasksForDate = async (userId: string, dateStr: string): Promis
       tasks.push(docToTask(doc));
     });
     
-    return tasks.sort((a, b) => a.createdAt - b.createdAt);
+    // Sort manually on client side to handle mixed legacy data smoothly
+    return tasks.sort((a, b) => {
+        const orderA = a.order ?? a.createdAt;
+        const orderB = b.order ?? b.createdAt;
+        return orderA - orderB;
+    });
   } catch (error) {
     console.error("Error fetching tasks:", error);
     return [];
   }
 };
 
-// NEW: Fetch tasks for a whole month range to populate calendar dots
 export const fetchTasksForMonth = async (userId: string, startStr: string, endStr: string): Promise<Task[]> => {
   // GUEST MODE
   if (userId === 'guest') {
     const allTasks = getLocalTasks();
-    // Filter string date range
     return allTasks.filter(t => t.userId === 'guest' && t.date >= startStr && t.date <= endStr);
   }
 
@@ -103,13 +113,28 @@ export const fetchTasksForMonth = async (userId: string, startStr: string, endSt
 };
 
 export const addTask = async (userId: string, content: string, dateStr: string): Promise<Task | null> => {
+  // Get current tasks count/max order to append
+  let nextOrder = Date.now(); // Default to timestamp
+  
+  // Try to find the max order of existing tasks for this day to append to bottom
+  try {
+      const existing = await fetchTasksForDate(userId, dateStr);
+      if (existing.length > 0) {
+          const maxOrder = Math.max(...existing.map(t => t.order ?? 0));
+          nextOrder = maxOrder + 100; // Add gap for easier reordering later
+      } else {
+          nextOrder = 0;
+      }
+  } catch(e) { /* ignore */ }
+
   const newTask: Task = {
-    id: userId === 'guest' ? `guest_${Date.now()}` : '', // ID assigned later for firebase
+    id: userId === 'guest' ? `guest_${Date.now()}` : '', 
     content,
     isCompleted: false,
     date: dateStr,
     userId,
     createdAt: Date.now(),
+    order: nextOrder
   };
 
   // GUEST MODE
@@ -124,7 +149,6 @@ export const addTask = async (userId: string, content: string, dateStr: string):
   if (!db) return null;
 
   try {
-    // Remove ID before sending to Firestore (let Firestore generate it)
     const { id, ...taskData } = newTask;
     const docRef = await addDoc(collection(db, `users/${userId}/${TASKS_COLLECTION}`), taskData);
     return { ...newTask, id: docRef.id };
@@ -192,4 +216,37 @@ export const updateTaskContent = async (userId: string, taskId: string, content:
   } catch (error) {
     console.error("Error updating task content:", error);
   }
+};
+
+// NEW: Batch update order
+export const updateTasksOrder = async (userId: string, tasks: Task[]): Promise<void> => {
+    // GUEST MODE
+    if (userId === 'guest') {
+        const allTasks = getLocalTasks();
+        // Create a map of the new orders for the tasks being updated
+        const updateMap = new Map(tasks.map(t => [t.id, t.order]));
+        
+        const updatedAll = allTasks.map(t => {
+            if (updateMap.has(t.id)) {
+                return { ...t, order: updateMap.get(t.id)! };
+            }
+            return t;
+        });
+        setLocalTasks(updatedAll);
+        return;
+    }
+
+    // FIREBASE MODE
+    if (!db) return;
+
+    try {
+        const batch = writeBatch(db);
+        tasks.forEach(task => {
+            const docRef = doc(db, `users/${userId}/${TASKS_COLLECTION}`, task.id);
+            batch.update(docRef, { order: task.order });
+        });
+        await batch.commit();
+    } catch (error) {
+        console.error("Error updating task order:", error);
+    }
 };
